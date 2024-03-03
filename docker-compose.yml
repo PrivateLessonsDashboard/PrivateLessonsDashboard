@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  mariadb:
+    container_name: private-lessons-dashboard-mariadb-db
+    platform: linux/x86_64
+    image: mariadb:11.3.2
+    restart: unless-stopped
+    ports:
+      - 3307:3306
+    environment:
+      - MARIADB_ROOT_HOST=127.0.0.1
+      - MARIADB_DATABASE=laravel
+      - MARIADB_USER=root
+      - MARIADB_ROOT_PASSWORD=pass
+    volumes:
+      - private-lessons-dashboard-mariadb-db-volume:/var/lib/mariadb
+    networks:
+      - private-lessons-dashboard-network
+
+  redis:
+    container_name: private-lessons-dashboard-redis-db
+    image: redis:7.2.4
+    restart: unless-stopped
+    ports:
+      - 6380:6379
+    environment:
+      - MARIADB_ROOT_HOST=127.0.0.1
+      - MARIADB_DATABASE=laravel
+      - MARIADB_USER=root
+      - MARIADB_ROOT_PASSWORD=pass
+    volumes:
+      - private-lessons-dashboard-redis-db-volume:/var/lib/redis
+    networks:
+      - private-lessons-dashboard-network
+    depends_on:
+      - mariadb
+
+  nginx:
+    container_name: private-lessons-dashboard-nginx
+    image: nginx:alpine
+    restart: unless-stopped
+    build:
+      context: Docker-configs
+      dockerfile: Dockerfile_nginx
+    ports:
+      - 80:80
+    networks:
+      - private-lessons-dashboard-network
+    depends_on:
+      - mariadb
+      - redis
+
+  laravel:
+    container_name: private-lessons-dashboard-backend
+    restart: unless-stopped
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - 9000:9000
+    volumes:
+      - private-lessons-dashboard-backend-volume:/var/www/html/storage
+    networks:
+      - private-lessons-dashboard-network
+    depends_on:
+      - nginx
+
+volumes:
+  private-lessons-dashboard-mariadb-db-volume:
+    driver: local
+  private-lessons-dashboard-redis-db-volume:
+    driver: local
+  private-lessons-dashboard-backend-volume:
+    driver: local
+
+networks:
+  private-lessons-dashboard-network:
+    driver: bridge
