@@ -1,79 +1,94 @@
-version: "3.9"
+version: '3'
+name: 'pld'
 
 services:
-  mariadb:
-    container_name: private-lessons-dashboard-mariadb-db
-    platform: linux/x86_64
-    image: mariadb:11.3.2
-    restart: unless-stopped
-    ports:
-      - 3307:3306
-    environment:
-      - MARIADB_ROOT_HOST=127.0.0.1
-      - MARIADB_DATABASE=laravel
-      - MARIADB_USER=root
-      - MARIADB_ROOT_PASSWORD=pass
-    volumes:
-      - private-lessons-dashboard-mariadb-db-volume:/var/lib/mariadb
-    networks:
-      - private-lessons-dashboard-network
 
-  redis:
-    container_name: private-lessons-dashboard-redis-db
-    image: redis:7.2.4
-    restart: unless-stopped
-    ports:
-      - 6380:6379
-    environment:
-      - MARIADB_ROOT_HOST=127.0.0.1
-      - MARIADB_DATABASE=laravel
-      - MARIADB_USER=root
-      - MARIADB_ROOT_PASSWORD=pass
-    volumes:
-      - private-lessons-dashboard-redis-db-volume:/var/lib/redis
-    networks:
-      - private-lessons-dashboard-network
-    depends_on:
-      - mariadb
+    ####################################################################################################
+    # PHP
+    ####################################################################################################
+    laravel:
+        build: .docker/php
+        ports:
+            - 8080:5173
+        volumes:
+            - ./Backend/:/var/www:cached
+        depends_on:
+            - db
+            - redis
 
-  nginx:
-    container_name: private-lessons-dashboard-nginx
-    image: nginx:alpine
-    restart: unless-stopped
-    build:
-      context: Docker-configs
-      dockerfile: Dockerfile_nginx
-    ports:
-      - 80:80
-    networks:
-      - private-lessons-dashboard-network
-    depends_on:
-      - mariadb
-      - redis
+    ####################################################################################################
+    # Nginx
+    ####################################################################################################
+    nginx:
+        image: nginx
+        ports:
+            - 8888:80
+        volumes:
+            - ./Backend/:/var/www
+            - .docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+            - .docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+        depends_on:
+            - laravel
 
-  laravel:
-    container_name: private-lessons-dashboard-backend
-    restart: unless-stopped
-    build:
-      context: ./Backend
-      dockerfile: Dockerfile
-    ports:
-      - 9000:9000
-    volumes:
-      - private-lessons-dashboard-backend-volume:/var/www/html/storage
-    networks:
-      - private-lessons-dashboard-network
-    depends_on:
-      - nginx
+        ####################################################################################################
+    # DATABASE (MySQL)
+    ####################################################################################################
+    db:
+        platform: linux/amd64
+        build: .docker/db
+        ports:
+            - 3307:3306
+        volumes:
+            - mariadb_data:/var/lib/mysql
+            - mariadb_data:/var/log/mysql
+            - mariadb_data:/etc/mysql/conf.d/my.cnf
+            - mariadb_data:/docker-entrypoint-initdb.d
+        environment:
+            MYSQL_ROOT_PASSWORD: pass
+            MYSQL_DATABASE: laravel
+            MYSQL_USER: usr
+            MYSQL_PASSWORD: pass
+
+    ####################################################################################################
+    # REDIS
+    ####################################################################################################
+    redis:
+        image: redis:6.2-alpine
+        restart: always
+        ports:
+            - '6380:6379'
+        command: redis-server --save 20 1 --loglevel warning
+        volumes:
+            - redis_data:/data
+
+    ####################################################################################################
+    # phpMyAdmin
+    ####################################################################################################
+    phpmyadmin:
+        platform: linux/amd64
+        image: phpmyadmin/phpmyadmin
+        ports:
+            - 8088:80
+        links:
+            - db
+        environment:
+            PMA_HOST: db
+            PMA_PORT: 3306
+            PMA_ARBITRARY: 1
+        volumes:
+            - .docker/phpmyadmin/sessions:/sessions
+
+    ####################################################################################################
+    # Mailpit
+    ####################################################################################################
+    mail:
+        image: axllent/mailpit:latest
+        ports:
+        - 8025:8025
+        - 1025:1025
 
 volumes:
-  private-lessons-dashboard-mariadb-db-volume:
-    driver: local
-  private-lessons-dashboard-redis-db-volume:
-    driver: local
-  private-lessons-dashboard-backend-volume:
-    driver: local
-
-networks:
-  private-lessons-dashboard-network:
-    driver: bridge
+    mariadb_data:
+        driver: local
+    redis_data:
+        driver: local
