@@ -1,4 +1,4 @@
-FROM mariadb:latest
+FROM mariadb:11.3
 RUN mkdir -p /var/lib/mysql && \
     chown -R mysql:mysql /var/lib/mysql
 RUN mkdir -p /var/lib/mysql/data && \
