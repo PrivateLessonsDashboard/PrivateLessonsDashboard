@@ -40,11 +40,30 @@ services:
         build: .docker/php
         ports:
             - "8080:5173"
+            - "9000:9000"
         volumes:
             - ./Backend/:/var/www:cached
+        # command: bash -c ./entrypoint.sh
         depends_on:
             - db
             - redis
+
+    ####################################################################################################
+    # Node
+    ####################################################################################################
+    node:
+        build:
+            context: ./Frontend/
+            dockerfile: ../.docker/node/Dockerfile
+            target: dev
+        ports:
+            - "3000:3000"
+        volumes:
+            - ./Frontend/:/app/src
+            - /app/src/node_modules
+            - /app/src/.next
+        depends_on:
+            - laravel
 
     ####################################################################################################
     # Nginx
