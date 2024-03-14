@@ -1,4 +1,4 @@
-SCRIPT_NAME="start-dev.sh"
+SCRIPT_NAME="start_scripts.sh"
 
 SCRIPT_PATH="$(
   cd -- "$(dirname "$0")" >/dev/null 2>&1 || null
